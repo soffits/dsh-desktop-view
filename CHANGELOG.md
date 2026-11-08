@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
 
 - Live desktop view from cua-spacesd, relayed through DSH's own web server and login, shown with Cua's own web viewer.
 - Watch by default, with sound; Take control and Give back; control returns after `idleSeconds` without input or when the view closes. Enforced on the server with per-mode daemon tickets and allow-lists.
