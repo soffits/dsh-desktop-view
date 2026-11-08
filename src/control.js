@@ -25,7 +25,7 @@ export const RELEASE_REASONS = Object.freeze(['released', 'idle', 'disconnected'
  * @param {(timer: unknown) => void} [options.clearTimer]
  */
 export function createControl({ idleMs, persist, now = Date.now, setTimer = setTimeout, clearTimer = clearTimeout }) {
-  /** @type {{ id: string, sessionId: string | null, since: number, lastInput: number, end: (reason: string) => void } | null} */
+  /** @type {{ id: string, sessionId: string | null, help: boolean, since: number, lastInput: number, end: (reason: string) => void } | null} */
   let holder = null
   let timer
   let lastReason = null
@@ -67,7 +67,7 @@ export function createControl({ idleMs, persist, now = Date.now, setTimer = setT
     lastReason = reason
     arm()
     previous.end(reason)
-    publish({ kind: 'released', reason, sessionId: previous.sessionId, heldMs: now() - previous.since })
+    publish({ kind: 'released', reason, sessionId: previous.sessionId, help: previous.help, heldMs: now() - previous.since })
     return true
   }
 
@@ -80,14 +80,14 @@ export function createControl({ idleMs, persist, now = Date.now, setTimer = setT
 
     /**
      * Give control to one socket, ending any other holder's control.
-     * @param {{ id: string, sessionId: string | null, end: (reason: string) => void }} claim
+     * @param {{ id: string, sessionId: string | null, help?: boolean, end: (reason: string) => void }} claim - `help`: the view was opened from the agent's help link.
      */
     take(claim) {
       if (holder !== null) end(holder.id, 'replaced')
       const at = now()
-      holder = { ...claim, since: at, lastInput: at }
+      holder = { help: false, ...claim, since: at, lastInput: at }
       arm()
-      publish({ kind: 'taken', sessionId: claim.sessionId })
+      publish({ kind: 'taken', sessionId: claim.sessionId, help: holder.help })
     },
 
     /** Record input from the holder, which keeps control from going idle. */

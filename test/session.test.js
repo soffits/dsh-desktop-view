@@ -92,3 +92,9 @@ test('destroying the view closes the socket on purpose, which ends it on the ser
   assert.equal(socket.closed, 1000)
   assert.equal(frame.src, 'about:blank')
 })
+
+test('a help link view tells the server, so giving back wakes the agent', () => {
+  FakeWebSocket.instances.length = 0
+  createDesktopSession({ frame: new FakeFrame(), base: 'https://dsh.example/desktop-view/', sessionId: 's-1', help: true, onStatus: () => {} })
+  assert.equal(FakeWebSocket.instances[0].url, 'wss://dsh.example/desktop-view/status?session=s-1&help=1')
+})

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Giving control back wakes the agent only when it has to carry on: it is running, or the view came from its help link (`?help=1`); otherwise the note waits quietly. Taking control never starts a turn.
+- Control notes show in the chat as a "Desktop control" row instead of the generic "Execution requested", and are shorter.
 - Hiding the Desktop tab (another sidebar tab, a collapsed sidebar, another session) no longer gives control back: the view and its control stay, and the stream pauses until the tab is shown again.
 
 ## 0.2.0

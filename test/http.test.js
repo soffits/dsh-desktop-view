@@ -38,9 +38,9 @@ test('only the owner is admitted; other principals and refusals are not', () => 
 })
 
 test('a status socket names an optional session and resume token, ignoring malformed ones', () => {
-  assert.deepEqual(statusQuery('/desktop-view/status'), { sessionId: null, resume: null })
-  assert.deepEqual(statusQuery('/desktop-view/status?session=s-1&resume=abcdefghijklmnopqrstuvwx'), { sessionId: 's-1', resume: 'abcdefghijklmnopqrstuvwx' })
-  assert.deepEqual(statusQuery('/desktop-view/status?session=bad%20id&resume=short'), { sessionId: null, resume: null })
+  assert.deepEqual(statusQuery('/desktop-view/status'), { sessionId: null, resume: null, help: false })
+  assert.deepEqual(statusQuery('/desktop-view/status?session=s-1&resume=abcdefghijklmnopqrstuvwx&help=1'), { sessionId: 's-1', resume: 'abcdefghijklmnopqrstuvwx', help: true })
+  assert.deepEqual(statusQuery('/desktop-view/status?session=bad%20id&resume=short&help=yes'), { sessionId: null, resume: null, help: false })
 })
 
 test('everything under the viewer base goes to the viewer proxy, after admission', async () => {

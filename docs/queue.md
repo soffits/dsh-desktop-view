@@ -2,6 +2,7 @@
 
 Known gaps and leftovers, newest first. Anything here is unfinished work, not a promise in a report.
 
+- The "Desktop control" chat row relies on the chat's `user/message` node shape and exclusive claims of DSH 0.2.2-rc.1; other views of a session (exports, the trajectory view) still show the note's plain text.
 - After a daemon restart or token rotation, the first viewer call with the old viewer ticket fails before the relay mints a new one; the viewer then reconnects on its own, but one error toast may show. A transparent retry of unary calls would hide it.
 - The watch picture was not seen rendered in headless Chromium (the daemon's own viewer, unrelayed, stays on "Connecting" there too, so this is a headless limit, not the relay); control mode rendered through the relay. Confirm watch in a real browser.
 - Sound stops while the Desktop tab is hidden, because the paused tab unloads the viewer. Keeping audio alone would need a second, audio-only stream.

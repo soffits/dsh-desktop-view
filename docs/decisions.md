@@ -37,8 +37,10 @@ file records how it is built.
 
 - The state lives in a small JSON file (`stateFile`), written atomically at 0600 with `controller`, `since`, `sessionId`, `updatedAt` and, when free, `lastReason`: an agent's own script can check it without asking DSH for anything.
 - The file sits in the temp directory by default (`/tmp/dsh-desktop-view/control.json`): it describes a live session, not history worth keeping.
-- Taking control is queued with `agent.inject` and giving it back with `agent.steer`: an idle agent is not woken to be told to stop, but is woken to carry on once the owner is done.
+- Taking control is always queued with `agent.inject`; giving it back is sent with `agent.steer` only when the agent has to carry on (it is running, or the view came from its help link, `?help=1`), and queued quietly otherwise: waking an idle agent that never asked for help only made it write a pointless reply.
+- The help mark is an explicit `help=1` on the link the agent sends, carried by the view to its control, rather than guessed from `control=1`: the owner opens control links herself too, and only the agent knows it is waiting.
 - The notes carry this plugin's own message source kind (`desktop-view`) with form `notice`, which DSH's message source union allows producers to add: the transcript stays honest about who wrote them.
+- The Web UI shows them as the plugin's own chat row ("Desktop control" with the desktop icon, what happened, the time) through the supported path: a Conversation event Definition on the `chat` target that claims these `user/message` events exclusively, and a `conversation.chat.node` renderer under its kind. Otherwise DSH's chat labels any unknown source "Execution requested"; borrowing another source kind's label would be dishonest.
 
 ## Viewer
 
