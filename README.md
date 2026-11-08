@@ -8,7 +8,7 @@ The desktop stream that cua-spacesd (Cua's in-guest daemon) generates, together 
 
 - **A Desktop tab on the right sidebar**, reachable either through the sidebar guide or via the monitor button in the session header.
 - **A full-screen page** at `/desktop-view/`, served from your DSH origin. It adapts to a phone screen, supports touch, and supports direct linking. Adding `?control=1` makes it open directly in control mode, letting an agent that needs help send you a link.
-- **Watching is the default mode.** You see and hear the desktop, while clicks, keystrokes, clipboard and files are refused. Picking "Take control" switches modes; "Give back" returns you to watching. Control likewise ends on its own after a stretch with no input, or if the view is closed or hidden.
+- **Watching is the default mode.** You see and hear the desktop, while clicks, keystrokes, clipboard and files are refused. Picking "Take control" switches modes; "Give back" returns you to watching. Control likewise ends on its own after a stretch with no input, or when the view is closed. Merely hiding the Desktop tab (another sidebar tab, a collapsed sidebar, another session) keeps your control; the stream pauses until you look again.
 - **All the desktop viewer's features while you hold control**: mouse, keyboard and touch input, an on-screen keyboard, clipboard syncing, drag-and-drop file uploads, file browsing and downloads, display selection, scaling, and the microphone wherever the desktop supports one.
 - **The agent is kept informed.** For as long as you hold control, a small JSON file is written by the plugin; the agent ought to read it before acting on the desktop, and each control change notifies the session that opened the view.
 

@@ -28,7 +28,7 @@ file records how it is built.
 
 - Watching and control are enforced on the server, three times over: by the daemon's viewer ticket scope, by the media session's policy that scope caps, and by the relay's allow-lists of RPCs and media message types per mode: a modified page cannot send input, read the clipboard or touch files while watching.
 - One controlling view at a time, newest wins; the replaced view is told (`ended: replaced`) and its control streams are closed with code 4100: there is one mouse, so a second controller would only fight the first.
-- Control ends on an explicit "Give back", when the view's status socket closes (tab hidden or closed, page left), or after `idleSeconds` without input; input means input batches on the control stream and user actions (paste into the desktop, file transfers), not the viewer's own polling.
+- Control ends on an explicit "Give back", when the view really closes (tab closed, page left), or after `idleSeconds` without input; input means input batches on the control stream and user actions (paste into the desktop, file transfers), not the viewer's own polling.
 - Control returns to watching rather than staying on: a user who walks away must not leave the desktop open to stray clicks.
 - A view outlives a cut status socket by 30 s: the page reconnects with the view's resume token and gets the same grant back, so its viewer keeps running and control is kept; only a view closed on purpose (code 1000) or not back in time ends. A proxy hiccup must not throw the owner out of control or reload her stream.
 - Control belongs to a view's status socket, not to a stream: the stream may reconnect, and after any status disconnection the view comes back watching, because taking control is a decision the user makes.
@@ -52,6 +52,7 @@ file records how it is built.
 ## Web UI placement
 
 - A right-sidebar tab type (also offered in the sidebar guide) plus a button in the session header's utilities, rather than a page: the desktop belongs beside the conversation that is driving it.
+- A hidden Desktop tab keeps its view and control (owner's decision): the tab type is `keepMounted`, so its body survives tab switches, a collapsed sidebar and session changes, and while hidden it only unloads the viewer frame and loads it again with the same grant when shown. Unloading rather than keeping the stream running is for CPU on a small shared machine: a hidden tab then costs no encoding on the server and no decoding in the browser, for a second of reload when it comes back. Idle still applies, since nobody gives input to a hidden tab.
 - The header button only opens or hides the tab, without a pressed state of its own: the sidebar exposes no subscription for its layout in 0.2.2-rc.1, and a polling indicator would cost more than it tells.
 - The header button's tooltip is rebuilt in the plugin from the host's Tooltip primitive (bottom, centred, 500 ms hover delay, immediate on keyboard focus, hidden on leave, blur, click and touch, same tokens and sizes), because plugins may not load the primitives package; the button keeps an `aria-label` and no native `title`, so there is one tooltip, like its neighbours'.
 - The tab and the full-screen page share `viewer/session.js` (status socket and frame): the Take control / Give back flow then behaves the same in both.
