@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { PREFIX, SECURITY_HEADERS, admitOwner, createPageHandler, isCrossSiteNavigation, parseMediaQuery, refuseUpgrade } from '../src/http.js'
+import { MEDIA_PATH, PREFIX, SECURITY_HEADERS, STATUS_PATH, admitOwner, createPageHandler, isCrossSiteNavigation, refuseUpgrade, statusQuery } from '../src/http.js'
 
 /** A DSH connection double: admit() answers with the configured admission. */
 const connection = admission => ({ admit: () => admission })
@@ -21,9 +21,11 @@ function respond(handler, { url = '/desktop-view/', method = 'GET', headers = {}
   })
 }
 
-const files = { 'page.html': Buffer.from('<html>page</html>'), 'core.js': Buffer.from('export {}'), 'page.js': Buffer.from(''), 'page.css': Buffer.from(''), 'input.js': Buffer.from('') }
+const files = { 'page.html': Buffer.from('<html>page</html>'), 'session.js': Buffer.from('export {}'), 'page.js': Buffer.from(''), 'page.css': Buffer.from(''), 'shim.js': Buffer.from('') }
+const viewerCalls = []
 const handlerFor = admission => createPageHandler({
   connection: admission,
+  viewer: async (req, res, rest) => { viewerCalls.push(rest); res.writeHead(200, {}).end('viewer') },
   read: async file => files[file] ?? Promise.reject(new Error('missing')),
 })
 
@@ -35,11 +37,25 @@ test('only the owner is admitted; other principals and refusals are not', () => 
   assert.deepEqual(admitOwner(anonymous, { headers: {} }), { ok: false, status: 401 })
 })
 
-test('the media query names a mode and an optional session', () => {
-  assert.deepEqual(parseMediaQuery('/desktop-view/media'), { mode: 'watch', sessionId: null })
-  assert.deepEqual(parseMediaQuery('/desktop-view/media?mode=control&session=s-1'), { mode: 'control', sessionId: 's-1' })
-  assert.deepEqual(parseMediaQuery('/desktop-view/media?session=bad%20id'), { mode: 'watch', sessionId: null })
-  assert.equal(parseMediaQuery('/desktop-view/media?mode=admin'), undefined)
+test('a status socket names an optional session and resume token, ignoring malformed ones', () => {
+  assert.deepEqual(statusQuery('/desktop-view/status'), { sessionId: null, resume: null })
+  assert.deepEqual(statusQuery('/desktop-view/status?session=s-1&resume=abcdefghijklmnopqrstuvwx'), { sessionId: 's-1', resume: 'abcdefghijklmnopqrstuvwx' })
+  assert.deepEqual(statusQuery('/desktop-view/status?session=bad%20id&resume=short'), { sessionId: null, resume: null })
+})
+
+test('everything under the viewer base goes to the viewer proxy, after admission', async () => {
+  viewerCalls.length = 0
+  const res = await respond(handlerFor(owner), { url: '/desktop-view/d/cua.env.v1.SystemService/GetCapabilities', method: 'POST' })
+  assert.equal(res.status, 200)
+  assert.deepEqual(viewerCalls, ['cua.env.v1.SystemService/GetCapabilities'])
+  const refused = await respond(handlerFor(connection({ rejection: 401 })), { url: '/desktop-view/d/viewer/', method: 'GET' })
+  assert.equal(refused.status, 401)
+  assert.equal(viewerCalls.length, 1)
+})
+
+test('the two sockets live at fixed paths under the prefix', () => {
+  assert.equal(STATUS_PATH, '/desktop-view/status')
+  assert.equal(MEDIA_PATH, '/desktop-view/d/media')
 })
 
 test('a cross-site navigation is told apart from a fetch', () => {
@@ -54,7 +70,7 @@ test('the page and its assets are served to the owner with hardened headers', as
   assert.equal(res.headers['content-type'], 'text/html; charset=utf-8')
   assert.match(res.body.toString(), /<html>page<\/html>/)
   for (const [name, value] of Object.entries(SECURITY_HEADERS)) assert.equal(res.headers[name], value, name)
-  const asset = await respond(handlerFor(owner), { url: '/desktop-view/core.js' })
+  const asset = await respond(handlerFor(owner), { url: '/desktop-view/session.js' })
   assert.equal(asset.status, 200)
   assert.equal(asset.headers['content-type'], 'text/javascript; charset=utf-8')
 })
@@ -94,7 +110,7 @@ test('unknown assets are 404 and other methods 405', async () => {
 })
 
 test('a missing viewer file is reported, not crashed on', async () => {
-  const handler = createPageHandler({ connection: owner, read: async () => { throw new Error('ENOENT') } })
+  const handler = createPageHandler({ connection: owner, viewer: async () => {}, read: async () => { throw new Error('ENOENT') } })
   assert.equal((await respond(handler)).status, 500)
 })
 

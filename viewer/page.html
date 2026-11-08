@@ -14,14 +14,13 @@
     <header class="bar">
       <span class="status" id="status" role="status" aria-live="polite"></span>
       <span class="actions">
-        <button type="button" id="keyboard" hidden></button>
+        <button type="button" id="retry" hidden></button>
         <button type="button" id="toggle" class="primary"></button>
       </span>
     </header>
     <main class="stage" id="stage">
-      <canvas id="screen"></canvas>
-      <textarea id="input" class="keyboard" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" aria-hidden="true" tabindex="-1"></textarea>
-      <p class="message" id="message" hidden></p>
+      <iframe id="viewer" title="Desktop"></iframe>
+      <p class="message" id="message" role="status" hidden></p>
     </main>
   </body>
 </html>

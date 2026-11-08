@@ -9,9 +9,14 @@ Product decisions belong to the maintainers. This file records what was decided 
 - A session-header button and a right-sidebar tab (also in the sidebar guide), plus a full-screen page that works on a phone and can be linked directly, with an option that opens it in control mode.
 - The agent can see who controls the desktop (a JSON state file) and is told when control is given back.
 
-## Not in v1
+## v2 (decided)
 
-- Audio, file transfer, multi-user presence, sending links over Telegram (the agent sends links itself).
+- The owner confirmed v1's flow in the live UI and keeps it: watch by default, Take control / Give back, the status label.
+- Add everything the desktop daemon offers: audio, clipboard both ways, file upload and download, displays and windows, scaling, presence.
+
+## Not planned
+
+- Sending links over Telegram (the agent sends links itself).
 
 ## Open
 

@@ -4,10 +4,12 @@
  * that opens and closes it.
  *
  * Plain JavaScript in DSH's Client module format (no build step). React
- * comes from the page's module table. The stream itself is handled by the
- * viewer module the Host half serves at desktop-view/core.js, the same one
- * the full-screen page uses; it is loaded when a tab first becomes visible.
- * Styles use only the host theme tokens (--dsw-*).
+ * comes from the page's module table. The tab shows the status bar (status,
+ * Take control / Give back) over a frame with the relayed Cua viewer; the
+ * status socket and the frame are driven by desktop-view/session.js, which
+ * the Host half serves and the full-screen page uses too. It is loaded when
+ * a tab first becomes visible. Styles use only the host theme tokens
+ * (--dsw-*), except the viewer's own dark stage.
  */
 window.__ModuleLoader__.load({
   id: 'dsh-desktop-view',
@@ -25,17 +27,15 @@ window.__ModuleLoader__.load({
 
     const en = {
       title: 'Desktop',
-      'guide.description': 'Watch the agent\'s computer live and take control when it needs a hand.',
-      'header.toggle': 'Show or hide the agent\'s desktop',
+      'guide.description': 'Watch the agent\'s computer live, with sound, and take control when it needs a hand.',
+      'header.toggle': 'Agent\'s desktop',
       'status.connecting': 'Connecting…',
       'status.watching': 'Watching',
       'status.watchingOther': 'Watching · controlled in another view',
       'status.control': 'You are in control',
-      'status.error': 'Desktop stream unavailable',
-      'status.unsupported': 'This browser cannot decode the desktop stream (it needs WebCodecs H.264).',
+      'status.error': 'Desktop unavailable',
       'action.take': 'Take control',
       'action.give': 'Give back',
-      'action.keyboard': 'Keyboard',
       'action.fullscreen': 'Open full screen',
       'action.retry': 'Retry',
       'ended.idle': 'Control returned to watching after a while without input.',
@@ -45,17 +45,15 @@ window.__ModuleLoader__.load({
     }
     const zh = {
       title: '桌面',
-      'guide.description': '实时查看智能体的电脑，需要时接管控制。',
-      'header.toggle': '显示或隐藏智能体的桌面',
+      'guide.description': '实时查看智能体的电脑（含声音），需要时接管控制。',
+      'header.toggle': '智能体的桌面',
       'status.connecting': '正在连接…',
       'status.watching': '观看中',
       'status.watchingOther': '观看中 · 另一个窗口正在控制',
       'status.control': '你正在控制',
-      'status.error': '桌面画面暂时不可用',
-      'status.unsupported': '这个浏览器无法解码桌面画面（需要 WebCodecs H.264）。',
+      'status.error': '桌面暂时不可用',
       'action.take': '接管控制',
       'action.give': '交还控制',
-      'action.keyboard': '键盘',
       'action.fullscreen': '全屏打开',
       'action.retry': '重试',
       'ended.idle': '一段时间没有操作，已回到观看模式。',
@@ -88,20 +86,23 @@ window.__ModuleLoader__.load({
 .ddv-primary{background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-label-on-color,#fff);box-shadow:none}
 @media (hover:hover){.ddv-primary:hover:not(:disabled){background:var(--dsw-alias-state-business-primary);opacity:.9}}
 .ddv-stage{position:relative;flex:1;min-height:0;display:flex;background:#000}
-.ddv-stage[data-control=true]{box-shadow:inset 0 0 0 2px var(--dsw-alias-state-warning-primary,#d29922)}
-.ddv-canvas{width:100%;height:100%;display:block;object-fit:contain;touch-action:none;user-select:none;-webkit-user-select:none}
-.ddv-keyboard{position:absolute;left:0;bottom:0;width:1px;height:1px;opacity:0;border:0;padding:0;resize:none;font-size:16px}
+.ddv-stage[data-control=true]{box-shadow:inset 0 0 0 2px var(--dsw-alias-state-warning-primary,#d29922);padding:2px}
+.ddv-frame{flex:1;width:100%;height:100%;border:0;display:block;background:#000}
 .ddv-note{position:absolute;left:12px;right:12px;bottom:12px;margin:0;padding:8px 12px;border-radius:10px;background:var(--dsw-specific-sidebar-fill,var(--dsw-alias-bg-layer-1));color:var(--dsw-alias-label-secondary);font-size:12px}
-.ddv-message{margin:auto;padding:16px;max-width:28em;text-align:center;color:#c8c8cc}
-.ddv-header{width:28px;height:28px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:none;border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer}
-@media (hover:hover){.ddv-header:hover{background:var(--dsw-alias-interactive-bg-hover)}}
+.ddv-header{box-sizing:border-box;width:28px;height:28px;padding:0;display:inline-flex;align-items:center;justify-content:center;gap:4px;border:none;border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer;font-size:12px;line-height:18px}
+.ddv-header svg{width:15px;height:15px}
+.ddv-header:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}
+.ddv-header:active:not(:disabled){background:var(--dsw-alias-interactive-bg-active)}
+.ddv-tooltip{display:inline-flex;align-items:safe center;gap:8px;position:fixed;z-index:100;width:max-content;box-sizing:border-box;max-width:min(50vw,calc(100vw - 24px));padding:3px 7px;border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-tooltip-bg);color:var(--dsw-static-neutral-bluish-00);font-size:13px;line-height:20px;white-space:pre-line;overflow-wrap:break-word;pointer-events:none;transform:translate(-50%);animation:ddv-tooltip-in .15s var(--ds-ease-in-out)}
+@keyframes ddv-tooltip-in{0%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.ddv-tooltip{animation:none}}
 `
 
-    /** The shared viewer module, loaded once on first use. */
-    let viewerModule
-    const loadViewer = () => {
-      viewerModule ??= import(new URL(`${PREFIX}core.js`, document.baseURI).href)
-      return viewerModule
+    /** The shared session module (status socket + viewer frame), loaded once on first use. */
+    let sessionModule
+    const loadSession = () => {
+      sessionModule ??= import(new URL(`${PREFIX}session.js`, document.baseURI).href)
+      return sessionModule
     }
 
     const NOTE_MS = 6000
@@ -110,22 +111,20 @@ window.__ModuleLoader__.load({
       const { t, sessionId, useTabInfo } = props
       const info = typeof useTabInfo === 'function' ? useTabInfo() : undefined
       const visible = info?.tab?.visible !== false
-      const canvas = useRef(null)
-      const keyboard = useRef(null)
-      const viewer = useRef(null)
+      const frame = useRef(null)
+      const session = useRef(null)
       const [status, setStatus] = useState({ phase: 'connecting', mode: 'watch', controller: null, mine: false, ended: null })
       const [note, setNote] = useState(null)
-      const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches
 
-      // Stream only while the tab is on screen; a hidden tab costs nothing.
+      // Stream only while the tab is on screen; a hidden tab costs nothing,
+      // and hiding it gives control back like closing the viewer.
       useEffect(() => {
         if (!visible) return undefined
         let cancelled = false
-        loadViewer().then((module) => {
-          if (cancelled || canvas.current === null) return
-          viewer.current = module.createViewer({
-            canvas: canvas.current,
-            keyboard: keyboard.current,
+        loadSession().then((module) => {
+          if (cancelled || frame.current === null) return
+          session.current = module.createDesktopSession({
+            frame: frame.current,
             base: new URL(PREFIX, document.baseURI),
             sessionId: sessionId ?? null,
             onStatus: setStatus,
@@ -133,8 +132,8 @@ window.__ModuleLoader__.load({
         }, () => { if (!cancelled) setStatus(current => ({ ...current, phase: 'error' })) })
         return () => {
           cancelled = true
-          viewer.current?.destroy()
-          viewer.current = null
+          session.current?.destroy()
+          session.current = null
         }
       }, [visible, sessionId])
 
@@ -148,8 +147,8 @@ window.__ModuleLoader__.load({
       const inControl = status.mode === 'control' && status.mine
       let label = t('status.connecting')
       let tone = 'idle'
-      if (status.phase === 'unsupported' || status.phase === 'error') {
-        label = t(`status.${status.phase}`)
+      if (status.phase === 'error') {
+        label = t('status.error')
         tone = 'error'
       } else if (status.phase === 'live') {
         label = inControl ? t('status.control') : status.controller !== null ? t('status.watchingOther') : t('status.watching')
@@ -161,38 +160,97 @@ window.__ModuleLoader__.load({
         h('div', { className: 'ddv-bar' },
           h('span', { className: 'ddv-status', 'data-tone': tone, role: 'status', 'aria-live': 'polite' }, label),
           h('span', { className: 'ddv-actions' },
-            status.phase === 'error' && h('button', { type: 'button', className: 'ddv-btn', onClick: () => viewer.current?.retry() }, t('action.retry')),
-            coarse && inControl && h('button', { type: 'button', className: 'ddv-btn', onClick: () => viewer.current?.focusKeyboard() }, t('action.keyboard')),
+            status.phase === 'error' && h('button', { type: 'button', className: 'ddv-btn', onClick: () => session.current?.retry() }, t('action.retry')),
             h('a', { className: 'ddv-btn', href: fullscreen, target: '_blank', rel: 'noopener noreferrer' }, t('action.fullscreen')),
             h('button', {
               type: 'button',
               className: status.mode === 'control' ? 'ddv-btn' : 'ddv-btn ddv-primary',
-              disabled: status.phase === 'unsupported',
-              onClick: () => viewer.current?.setMode(status.mode === 'control' ? 'watch' : 'control'),
+              onClick: () => session.current?.setMode(status.mode === 'control' ? 'watch' : 'control'),
             }, status.mode === 'control' ? t('action.give') : t('action.take')))),
         h('div', { className: 'ddv-stage', 'data-control': String(inControl) },
-          status.phase === 'unsupported' && h('p', { className: 'ddv-message' }, t('status.unsupported')),
-          h('canvas', { ref: canvas, className: 'ddv-canvas', hidden: status.phase === 'unsupported' }),
-          h('textarea', {
-            ref: keyboard, className: 'ddv-keyboard', tabIndex: -1, 'aria-hidden': true,
-            autoCapitalize: 'off', autoComplete: 'off', autoCorrect: 'off', spellCheck: false,
-          }),
+          h('iframe', { ref: frame, className: 'ddv-frame', title: t('title') }),
           note && h('p', { className: 'ddv-note', role: 'status' }, note)))
+    }
+
+    /**
+     * The host's tooltip, rebuilt from its behaviour (the shared primitive
+     * is not a module plugins may load): below its anchor, centred, after
+     * 500 ms of mouse hover or at once on keyboard focus, hidden on leave,
+     * blur, click and touch.
+     */
+    const TOOLTIP_DELAY_MS = 500
+    const TOOLTIP_GAP_PX = 8
+    const VIEWPORT_MARGIN_PX = 12
+    function useTooltip(label) {
+      const anchor = useRef(null)
+      const timer = useRef(null)
+      const [at, setAt] = useState(null)
+      const clear = () => {
+        if (timer.current !== null) clearTimeout(timer.current)
+        timer.current = null
+      }
+      const show = () => {
+        const element = anchor.current
+        if (element === null) return
+        const rect = element.getBoundingClientRect()
+        setAt({ left: rect.left + rect.width / 2, top: rect.bottom + TOOLTIP_GAP_PX })
+      }
+      const hide = () => {
+        clear()
+        setAt(null)
+      }
+      useEffect(() => clear, [])
+      const bubble = useRef(null)
+      // Keep the bubble inside the viewport once its width is known.
+      useEffect(() => {
+        const element = bubble.current
+        if (at === null || element === null) return
+        const half = element.offsetWidth / 2
+        const left = Math.min(Math.max(at.left, half + VIEWPORT_MARGIN_PX), window.innerWidth - half - VIEWPORT_MARGIN_PX)
+        element.style.left = `${left}px`
+        element.style.visibility = 'visible'
+      }, [at])
+      const handlers = {
+        ref: anchor,
+        onPointerEnter: (event) => {
+          if (event.pointerType === 'touch') return
+          if (event.pointerType === 'mouse' && !window.matchMedia('(any-hover: hover)').matches) return
+          clear()
+          timer.current = setTimeout(() => { timer.current = null; show() }, TOOLTIP_DELAY_MS)
+        },
+        onPointerLeave: hide,
+        onPointerDown: (event) => { if (event.pointerType === 'touch') hide() },
+        onFocus: (event) => { if (event.currentTarget.matches(':focus-visible')) show() },
+        onBlur: hide,
+      }
+      const tip = at === null ? null : h('span', {
+        ref: bubble,
+        className: 'ddv-tooltip',
+        role: 'tooltip',
+        'data-side': 'bottom',
+        style: { left: at.left, top: at.top, visibility: 'hidden' },
+      }, label)
+      return { handlers, tip, hide }
     }
 
     /** Opens the Desktop tab, or hides it when it is the one showing. */
     function HeaderButton({ t, sidebar }) {
-      return h('button', {
-        type: 'button',
-        className: 'ddv-header',
-        'aria-label': t('header.toggle'),
-        title: t('header.toggle'),
-        onClick: () => {
-          const active = sidebar.active()
-          if (sidebar.isExpanded() && active?.kind === KIND) sidebar.hide(active.id)
-          else sidebar.openTab(KIND)
-        },
-      }, h(IconDesktop, { size: 16 }))
+      const label = t('header.toggle')
+      const { handlers, tip, hide } = useTooltip(label)
+      return h(React.Fragment, null,
+        h('button', {
+          ...handlers,
+          type: 'button',
+          className: 'ddv-header',
+          'aria-label': label,
+          onClick: () => {
+            hide()
+            const active = sidebar.active()
+            if (sidebar.isExpanded() && active?.kind === KIND) sidebar.hide(active.id)
+            else sidebar.openTab(KIND)
+          },
+        }, h(IconDesktop, { size: 16 })),
+        tip)
     }
 
     return {

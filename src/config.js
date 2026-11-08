@@ -9,15 +9,15 @@ export const Config = z.object({
   endpoint: z.string().default('http://127.0.0.1:3211')
     .description('Address of cua-spacesd on this machine. Keep it on loopback: the relay sends the env token to it.'),
   tokenFile: z.string().default('/run/cua/env-token')
-    .description('File holding the cua-spacesd env token. It is read for every stream, stays on the server and is never logged.'),
-  display: z.string().default('primary')
-    .description('Display to stream: a display id from cua-spacesd, or "primary".'),
-  maxFps: z.natural().min(1).max(60).default(15)
-    .description('Highest frame rate of the stream. Lower it to save CPU and bandwidth.'),
-  maxDimension: z.natural().default(0)
-    .description('Longest edge of the stream in pixels; 0 streams the native size.'),
-  bitrateKbps: z.natural().default(0)
-    .description('H.264 bitrate in kbit/s (250 to 100000); 0 uses the encoder default.'),
+    .description('File holding the cua-spacesd env token. It stays on the server and is never logged.'),
+  maxFps: z.natural().min(1).max(60).default(30)
+    .description('Highest frame rate the viewer asks for. Lower it to save CPU and bandwidth.'),
+  clipboard: z.boolean().default(true)
+    .description('While in control, sync the clipboard between your device and the desktop.'),
+  filesRoot: z.string().default('~')
+    .description('While in control, the desktop folder you may browse, upload to and download from ("~" is the desktop user\'s home). Empty turns file transfer off.'),
+  microphone: z.boolean().default(true)
+    .description('While in control, allow sending your microphone to the desktop (when the desktop supports it).'),
   idleSeconds: z.natural().min(10).default(120)
     .description('Control returns to watching after this many seconds without input.'),
   stateFile: z.string().default(DEFAULT_STATE_FILE)

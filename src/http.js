@@ -1,9 +1,11 @@
 /**
  * The plugin's routes on DSH's own web server, all under one prefix:
  *
- *   GET  /desktop-view/             full-screen viewer page (phones, direct links)
- *   GET  /desktop-view/<asset>      its script, styles and the shared viewer module
- *   WS   /desktop-view/media        the relayed desktop stream (?mode=watch|control&session=<id>)
+ *   GET  /desktop-view/              full-screen page (phones, direct links): status bar + viewer
+ *   GET  /desktop-view/<asset>       its script, styles, the shared session module and the viewer shim
+ *   *    /desktop-view/d/...         the relayed Cua viewer and its gRPC-Web calls (src/viewer.js)
+ *   WS   /desktop-view/status        one open view's status, Take control / Give back (src/status.js)
+ *   WS   /desktop-view/d/media       the viewer's media socket (src/media.js)
  *
  * Every request goes through `connection.admit`, the same check DSH applies
  * to its own API: the Host/Origin fence against cross-site and rebinding
@@ -12,29 +14,30 @@
  */
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
+import { VIEWER_BASE } from './viewer.js'
 
 export const PREFIX = '/desktop-view'
-export const MEDIA_PATH = `${PREFIX}/media`
+export const STATUS_PATH = `${PREFIX}/status`
+export const MEDIA_PATH = `${PREFIX}/${VIEWER_BASE}media`
 
-/** Static files of the viewer, by the path segment they are served under. */
+/** The plugin's own static files, by the path segment they are served under. */
 export const ASSETS = Object.freeze({
   '': { file: 'page.html', type: 'text/html; charset=utf-8' },
   'page.js': { file: 'page.js', type: 'text/javascript; charset=utf-8' },
   'page.css': { file: 'page.css', type: 'text/css; charset=utf-8' },
-  'core.js': { file: 'core.js', type: 'text/javascript; charset=utf-8' },
-  'input.js': { file: 'input.js', type: 'text/javascript; charset=utf-8' },
+  'session.js': { file: 'session.js', type: 'text/javascript; charset=utf-8' },
+  'shim.js': { file: 'shim.js', type: 'text/javascript; charset=utf-8' },
   'icon.svg': { file: '../icon.svg', type: 'image/svg+xml' },
 })
 
 const VIEWER_DIR = fileURLToPath(new URL('../viewer/', import.meta.url))
 
-/** Headers on every response: never cached, never framed, no referrer. */
+/** Headers on the plugin's own pages: never cached, not framed by others, no referrer. */
 export const SECURITY_HEADERS = Object.freeze({
   'cache-control': 'no-store',
   'referrer-policy': 'no-referrer',
   'x-content-type-options': 'nosniff',
-  'x-frame-options': 'DENY',
-  'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+  'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-src 'self'; frame-ancestors 'self'; base-uri 'none'; form-action 'none'",
 })
 
 /** Session ids are opaque but short and URL-safe; anything else is ignored. */
@@ -53,17 +56,24 @@ export function admitOwner(connection, request) {
   return { ok: true }
 }
 
+/** Resume tokens are random base64url. */
+const RESUME = /^[A-Za-z0-9_-]{16,64}$/
+
 /**
- * Read the media socket's query.
+ * What a status socket names: the DSH session the view was opened from,
+ * and the view it resumes after a dropped connection. Malformed values are
+ * ignored.
  * @param {string | undefined} url - The request target.
- * @returns {{ mode: 'watch' | 'control', sessionId: string | null } | undefined} undefined for a bad mode
+ * @returns {{ sessionId: string | null, resume: string | null }}
  */
-export function parseMediaQuery(url) {
+export function statusQuery(url) {
   const params = new URL(url ?? '/', 'http://relay.invalid').searchParams
-  const mode = params.get('mode') ?? 'watch'
-  if (mode !== 'watch' && mode !== 'control') return undefined
   const session = params.get('session')
-  return { mode, sessionId: session !== null && SESSION_ID.test(session) ? session : null }
+  const resume = params.get('resume')
+  return {
+    sessionId: session !== null && SESSION_ID.test(session) ? session : null,
+    resume: resume !== null && RESUME.test(resume) ? resume : null,
+  }
 }
 
 /**
@@ -91,21 +101,18 @@ function bouncePage(params) {
 }
 
 /**
- * The HTTP handler for the page and its assets.
+ * The HTTP handler for everything under the prefix.
  * @param {object} options
  * @param {object} options.connection - DSH `ctx.connection`.
+ * @param {(req: object, res: object, rest: string) => Promise<void>} options.viewer - Handles `d/...`.
  * @param {(file: string) => Promise<Buffer>} [options.read]
  */
-export function createPageHandler({ connection, read = file => readFile(VIEWER_DIR + file) }) {
+export function createPageHandler({ connection, viewer, read = file => readFile(VIEWER_DIR + file) }) {
   return async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://relay.invalid')
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
-      res.writeHead(405, { ...SECURITY_HEADERS, allow: 'GET, HEAD' }).end()
-      return
-    }
     const admitted = admitOwner(connection, req)
     if (!admitted.ok) {
-      if (isCrossSiteNavigation(req.headers) && !url.searchParams.has(BOUNCED)) {
+      if (req.method === 'GET' && isCrossSiteNavigation(req.headers) && !url.searchParams.has(BOUNCED)) {
         res.writeHead(200, { ...SECURITY_HEADERS, 'content-type': 'text/html; charset=utf-8' }).end(bouncePage(url.searchParams))
         return
       }
@@ -113,12 +120,21 @@ export function createPageHandler({ connection, read = file => readFile(VIEWER_D
         .end(admitted.status === 401 ? 'Sign in to DSH first.\n' : 'Forbidden.\n')
       return
     }
+    const rest = url.pathname.slice(PREFIX.length + 1)
+    if (url.pathname.startsWith(`${PREFIX}/${VIEWER_BASE}`)) {
+      await viewer(req, res, rest.slice(VIEWER_BASE.length))
+      return
+    }
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      res.writeHead(405, { ...SECURITY_HEADERS, allow: 'GET, HEAD' }).end()
+      return
+    }
     if (url.pathname === PREFIX) {
       // Relative assets need the trailing slash; keep the query (control, session).
       res.writeHead(308, { ...SECURITY_HEADERS, location: `${PREFIX.slice(PREFIX.lastIndexOf('/') + 1)}/${url.search}` }).end()
       return
     }
-    const asset = ASSETS[url.pathname.slice(PREFIX.length + 1)]
+    const asset = ASSETS[rest]
     if (asset === undefined) {
       res.writeHead(404, { ...SECURITY_HEADERS, 'content-type': 'text/plain; charset=utf-8' }).end('Not found.\n')
       return

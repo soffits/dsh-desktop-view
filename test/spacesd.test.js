@@ -1,50 +1,57 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { POLICY, SpacesdError, createSpacesd, decodeOpenMedia, encodeOpenMedia } from '../src/spacesd.js'
-import { decodeMessage, encodeMessage, grpcWebFrame } from '../src/proto.js'
+import { POLICY, SpacesdError, createSpacesd, decodeOpenMedia, decodeViewerTicket, encodeViewerTicket } from '../src/spacesd.js'
+import { decodeMessage, encodeMessage, grpcWebFrame, message, number, text } from '../src/proto.js'
 
-const grpcBody = bytes => {
+const grpcBody = (bytes) => {
   const status = Buffer.from('grpc-status:0\r\n')
   return Buffer.concat([grpcWebFrame(bytes), Buffer.from([0x80, 0, 0, 0, status.length]), status])
 }
 
-const openResponse = encodeMessage([
-  [1, 'string', 'media-1-abc'],
-  [2, 'string', 'ticket-123'],
-  [4, 'string', '/media?ticket=ticket-123'],
-  [10, 'varint', POLICY.view_only],
-  [12, 'message', encodeMessage([[1, 'message', encodeMessage([[1, 'varint', 1280], [2, 'varint', 800]])]])],
+const ticketResponse = encodeMessage([
+  [1, 'string', 'viewer-ticket-1'],
+  [2, 'message', encodeMessage([[1, 'varint', 1_800_000_000]])],
+  [3, 'string', '/viewer/#ticket=viewer-ticket-1&clipboard=0'],
+  [4, 'string', '/home/cua'],
 ])
 
-test('encodeOpenMedia carries the display, codec, policy and ticket lifetime', () => {
-  const fields = decodeMessage(encodeOpenMedia({
-    display: 'primary', policy: 'allow_activation', maxFps: 15, maxDimension: 1280, bitrateKbps: 2000, ticketTtlSeconds: 30,
-  }))
-  const target = fields.get(1)[0]
-  assert.equal(target.toString(), encodeMessage([[1, 'string', 'primary']]).toString())
-  assert.equal(fields.get(2)[0], 1)
-  assert.equal(fields.get(3)[0], 15)
-  assert.equal(fields.get(4)[0], 1280)
-  assert.equal(fields.get(5)[0], 2000)
-  assert.equal(fields.get(6)[0], POLICY.allow_activation)
-  assert.equal(decodeMessage(fields.get(8)[0]).get(1)[0], 30)
+test('a control viewer ticket asks for input, clipboard, files and the microphone', () => {
+  const fields = decodeMessage(encodeViewerTicket({ policy: 'allow_activation', clipboard: true, filesRoot: '~', audioUplink: true, ttlSeconds: 3600, name: 'Owner' }))
+  assert.equal(number(message(fields, 1), 1), 3600)
+  assert.equal(number(fields, 2), POLICY.allow_activation)
+  assert.equal(number(fields, 3), 1)
+  assert.equal(text(fields, 4), '~')
+  assert.equal(number(fields, 5), 1)
+  assert.equal(text(message(fields, 6), 2), 'Owner')
 })
 
-test('encodeOpenMedia refuses an unknown policy rather than sending a default', () => {
-  assert.throws(() => encodeOpenMedia({ display: 'primary', policy: 'full_control', maxFps: 15, maxDimension: 0, bitrateKbps: 0, ticketTtlSeconds: 30 }), /unknown media policy/)
+test('a watch viewer ticket asks for nothing but the view-only stream', () => {
+  const fields = decodeMessage(encodeViewerTicket({ policy: 'view_only', clipboard: false, filesRoot: '', audioUplink: false, ttlSeconds: 3600, name: 'Owner' }))
+  assert.equal(number(fields, 2), POLICY.view_only)
+  assert.equal(fields.has(3), false)
+  assert.equal(fields.has(4), false)
+  assert.equal(fields.has(5), false)
 })
 
-test('decodeOpenMedia reads the session, ticket, path, policy and frame size', () => {
-  assert.deepEqual(decodeOpenMedia(decodeMessage(openResponse)), {
-    sessionId: 'media-1-abc', ticket: 'ticket-123', wsPath: '/media?ticket=ticket-123', policy: 1, width: 1280, height: 800,
-  })
+test('an unknown policy is refused rather than sent as the default', () => {
+  assert.throws(() => encodeViewerTicket({ policy: 'root', clipboard: false, filesRoot: '', audioUplink: false, ttlSeconds: 60, name: '' }), /unknown viewer policy/)
 })
 
-test('decodeOpenMedia rejects a response without a session', () => {
-  assert.throws(() => decodeOpenMedia(decodeMessage(encodeMessage([[1, 'string', 'only-a-session']]))), SpacesdError)
+test('the minted ticket comes back with its expiry and the viewer hints, without the ticket in the hints', () => {
+  const minted = decodeViewerTicket(decodeMessage(ticketResponse))
+  assert.equal(minted.ticket, 'viewer-ticket-1')
+  assert.equal(minted.expiresAt, 1_800_000_000_000)
+  assert.equal(minted.hints, 'clipboard=0')
+  assert.throws(() => decodeViewerTicket(decodeMessage(encodeMessage([[3, 'string', '/viewer/']]))), SpacesdError)
 })
 
-test('openMedia sends the token header, never the URL, and reads the session', async () => {
+test('an OpenMedia answer names its media session and ticket', () => {
+  const fields = decodeMessage(encodeMessage([[1, 'string', 'media-1'], [2, 'string', 'media-ticket']]))
+  assert.deepEqual(decodeOpenMedia(fields), { sessionId: 'media-1', ticket: 'media-ticket' })
+  assert.equal(decodeOpenMedia(decodeMessage(encodeMessage([[1, 'string', 'media-1']]))), undefined)
+})
+
+test('minting sends the env token as a header only, never in the URL', async () => {
   const calls = []
   const spacesd = createSpacesd({
     endpoint: 'http://127.0.0.1:3211/',
@@ -52,17 +59,15 @@ test('openMedia sends the token header, never the URL, and reads the session', a
     readToken: async () => 'secret-token',
     fetch: async (url, init) => {
       calls.push({ url, init })
-      return new Response(grpcBody(openResponse), { status: 200 })
+      return new Response(grpcBody(ticketResponse), { status: 200 })
     },
   })
-  const opened = await spacesd.openMedia({ display: 'primary', policy: 'view_only', maxFps: 15, maxDimension: 0, bitrateKbps: 0, ticketTtlSeconds: 30 })
-  assert.equal(opened.sessionId, 'media-1-abc')
-  assert.equal(calls.length, 1)
-  assert.equal(calls[0].url, 'http://127.0.0.1:3211/cua.env.v1.StreamService/OpenMedia')
+  const minted = await spacesd.createViewerTicket({ policy: 'view_only', clipboard: false, filesRoot: '', audioUplink: false, ttlSeconds: 3600, name: 'Owner' })
+  assert.equal(minted.ticket, 'viewer-ticket-1')
+  assert.equal(calls[0].url, 'http://127.0.0.1:3211/cua.env.v1.SystemService/CreateViewerTicket')
   assert.equal(calls[0].url.includes('secret-token'), false)
   assert.equal(calls[0].init.headers['x-cua-env-authorization'], 'Bearer secret-token')
   assert.equal(calls[0].init.headers['content-type'], 'application/grpc-web+proto')
-  assert.equal(calls[0].init.body.readUInt32BE(1) > 0, true)
 })
 
 test('a daemon that answers with a gRPC failure becomes one readable error', async () => {
@@ -70,49 +75,28 @@ test('a daemon that answers with a gRPC failure becomes one readable error', asy
     endpoint: 'http://127.0.0.1:3211',
     tokenFile: '/run/cua/env-token',
     readToken: async () => 'secret-token',
-    fetch: async () => new Response(Buffer.alloc(0), { status: 200, headers: { 'grpc-status': '14', 'grpc-message': 'no%20display' } }),
+    fetch: async () => new Response(Buffer.alloc(0), { status: 200, headers: { 'grpc-status': '16', 'grpc-message': 'bad%20token' } }),
   })
   await assert.rejects(
-    () => spacesd.openMedia({ display: 'primary', policy: 'view_only', maxFps: 15, maxDimension: 0, bitrateKbps: 0, ticketTtlSeconds: 30 }),
-    error => error instanceof SpacesdError && error.status === 14 && /no display/.test(error.message),
+    () => spacesd.createViewerTicket({ policy: 'view_only', clipboard: false, filesRoot: '', audioUplink: false, ttlSeconds: 60, name: '' }),
+    error => error instanceof SpacesdError && error.status === 16 && /bad token/.test(error.message),
   )
 })
 
 test('an unreachable daemon and a missing token file are reported plainly', async () => {
+  const options = { policy: 'view_only', clipboard: false, filesRoot: '', audioUplink: false, ttlSeconds: 60, name: '' }
   const unreachable = createSpacesd({
     endpoint: 'http://127.0.0.1:3211',
     tokenFile: '/run/cua/env-token',
     readToken: async () => 'secret-token',
     fetch: async () => { throw Object.assign(new TypeError('fetch failed'), { cause: { code: 'ECONNREFUSED' } }) },
   })
-  await assert.rejects(() => unreachable.closeMedia('media-1-abc'), /not reachable .*ECONNREFUSED/)
+  await assert.rejects(() => unreachable.createViewerTicket(options), /not reachable .*ECONNREFUSED/)
   const noToken = createSpacesd({
     endpoint: 'http://127.0.0.1:3211',
     tokenFile: '/run/cua/env-token',
     readToken: async () => { throw Object.assign(new Error('nope'), { code: 'ENOENT' }) },
     fetch: async () => { throw new Error('must not be called') },
   })
-  await assert.rejects(() => noToken.closeMedia('media-1-abc'), /cannot read the cua-spacesd token file \(ENOENT\)/)
-})
-
-test('attach asks for the media path with the ticket as a subprotocol', async () => {
-  const { WebSocketServer } = await import('ws')
-  const server = new WebSocketServer({ port: 0 })
-  await new Promise(resolve => server.once('listening', resolve))
-  const { port } = server.address()
-  const seen = new Promise(resolve => server.on('connection', (socket, request) => resolve(request)))
-  const spacesd = createSpacesd({ endpoint: `http://127.0.0.1:${port}`, tokenFile: '/unused' })
-  const socket = spacesd.attach({ wsPath: '/media?ticket=abc', ticket: 'abc' })
-  try {
-    const request = await seen
-    assert.equal(request.url, '/media')
-    assert.equal(request.headers['sec-websocket-protocol'], 'rcdp.v2,cua.ticket.abc')
-  } finally {
-    await new Promise(resolve => {
-      if (socket.readyState === socket.OPEN) socket.close()
-      else socket.once('open', () => socket.close())
-      socket.once('close', resolve)
-    })
-    await new Promise(resolve => server.close(resolve))
-  }
+  await assert.rejects(() => noToken.createViewerTicket(options), /cannot read the cua-spacesd token file \(ENOENT\)/)
 })
