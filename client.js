@@ -116,10 +116,12 @@ window.__ModuleLoader__.load({
       const [status, setStatus] = useState({ phase: 'connecting', mode: 'watch', controller: null, mine: false, ended: null })
       const [note, setNote] = useState(null)
 
-      // Stream only while the tab is on screen; a hidden tab costs nothing,
-      // and hiding it gives control back like closing the viewer.
+      // The view (status socket, grant, control) lives as long as the tab
+      // does; while the tab is hidden only the viewer frame is unloaded, so
+      // a hidden tab streams and decodes nothing but keeps control.
+      const visibleRef = useRef(visible)
+      visibleRef.current = visible
       useEffect(() => {
-        if (!visible) return undefined
         let cancelled = false
         loadSession().then((module) => {
           if (cancelled || frame.current === null) return
@@ -129,13 +131,19 @@ window.__ModuleLoader__.load({
             sessionId: sessionId ?? null,
             onStatus: setStatus,
           })
+          if (!visibleRef.current) session.current.pause()
         }, () => { if (!cancelled) setStatus(current => ({ ...current, phase: 'error' })) })
         return () => {
           cancelled = true
           session.current?.destroy()
           session.current = null
         }
-      }, [visible, sessionId])
+      }, [sessionId])
+
+      useEffect(() => {
+        if (visible) session.current?.resume()
+        else session.current?.pause()
+      }, [visible])
 
       useEffect(() => {
         if (status.ended === null) return undefined
@@ -276,6 +284,9 @@ window.__ModuleLoader__.load({
           id: TAB_ID,
           kind: KIND,
           priority: 'extension',
+          // Hiding the tab (another tab, a collapsed sidebar, another session)
+          // must not end the view: control lasts until Give back, idle or close.
+          keepMounted: true,
           title: () => t('title'),
           guide: [{
             id: 'desktop',

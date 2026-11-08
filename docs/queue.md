@@ -4,7 +4,7 @@ Known gaps and leftovers, newest first. Anything here is unfinished work, not a 
 
 - After a daemon restart or token rotation, the first viewer call with the old viewer ticket fails before the relay mints a new one; the viewer then reconnects on its own, but one error toast may show. A transparent retry of unary calls would hide it.
 - The watch picture was not seen rendered in headless Chromium (the daemon's own viewer, unrelayed, stays on "Connecting" there too, so this is a headless limit, not the relay); control mode rendered through the relay. Confirm watch in a real browser.
-- Hiding the sidebar tab (switching tabs, collapsing the sidebar) closes the view and so gives control back; that saves CPU but means control does not survive a quick look at another tab.
+- Sound stops while the Desktop tab is hidden, because the paused tab unloads the viewer. Keeping audio alone would need a second, audio-only stream.
 - The header button has no pressed state and no keyboard shortcut. The sidebar exposes no layout subscription in 0.2.2-rc.1, so a shortcut and a pressed state wait for an API that reports the open tab.
 - The full-screen page does not say which view took control over when it is replaced.
 - `test/live.test.js` only runs where `cua-spacesd` and its token file exist; CI skips it. A CI job with the Cua image would close that gap.

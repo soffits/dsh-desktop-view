@@ -64,6 +64,7 @@ test('the browser half loads through the module loader and registers one tab typ
   const types = registrations.filter(entry => entry.kind === 'desktop-view' && entry.guide !== undefined)
   assert.equal(types.length, 1)
   assert.equal(types[0].priority, 'extension')
+  assert.equal(types[0].keepMounted, true, 'a hidden tab keeps its view and control')
   assert.equal(types[0].guide.length, 1)
   assert.equal(types[0].guide[0].kind, undefined, 'guide entries are matched by their provider kind')
 })

@@ -44,6 +44,10 @@ export function createDesktopSession({ frame, base, sessionId = null, mode = 'wa
   let resume = null
   /** The relay ticket the frame shows now. */
   let shown = null
+  /** The grant the server gave last; shown again after a pause. */
+  let latest = null
+  /** While paused the frame is unloaded, but the view and its control stay. */
+  let paused = false
   let status = { phase: 'connecting', mode: 'watch', controller: null, mine: false, ended: null }
 
   const report = (patch) => {
@@ -55,10 +59,17 @@ export function createDesktopSession({ frame, base, sessionId = null, mode = 'wa
   }
 
   frame.allow = FRAME_ALLOW
-  const onLoad = () => { if (frame.src !== '' && status.phase === 'connecting') report({ phase: 'live' }) }
+  const onLoad = () => {
+    if (!paused && shown !== null && status.phase === 'connecting') report({ phase: 'live' })
+  }
   frame.addEventListener('load', onLoad)
 
   const show = (grant) => {
+    latest = grant
+    if (paused) {
+      report({ mode: grant.mode })
+      return
+    }
     // A resumed view gets its current grant again; the frame keeps running.
     if (grant.ticket === shown) {
       report({ phase: frame.src === '' ? 'connecting' : 'live', mode: grant.mode })
@@ -142,6 +153,23 @@ export function createDesktopSession({ frame, base, sessionId = null, mode = 'wa
       } else {
         send({ type: 'give' })
       }
+    },
+    /**
+     * Stop showing the desktop but keep the view: the frame is unloaded (no
+     * stream, no decoding), while the status socket, the grant and control
+     * stay. Used while the sidebar tab is hidden.
+     */
+    pause() {
+      if (paused) return
+      paused = true
+      shown = null
+      frame.src = 'about:blank'
+    },
+    /** Show the desktop again after {@link pause}, with the current grant. */
+    resume() {
+      if (!paused) return
+      paused = false
+      if (latest !== null) show(latest)
     },
     /** Reconnect after an error. */
     retry() {

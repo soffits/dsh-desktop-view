@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Hiding the Desktop tab (another sidebar tab, a collapsed sidebar, another session) no longer gives control back: the view and its control stay, and the stream pauses until the tab is shown again.
+
 ## 0.2.0
 
 - Live desktop view from cua-spacesd, relayed through DSH's own web server and login, shown with Cua's own web viewer.
