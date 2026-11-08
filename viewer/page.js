@@ -3,7 +3,10 @@
  * Take control / Give back) over the relayed desktop viewer. It fits any
  * screen and can be linked directly. `?control=1` opens it straight in
  * control mode (the agent sends the owner such a link when it needs a
- * hand); `?session=<id>` names the DSH session to tell when control changes.
+ * hand); `?session=<id>` names the DSH session to tell when control changes;
+ * `?help=1` says the agent sent the link because it is waiting for the owner,
+ * so giving control back wakes it. `control` is dropped from the address
+ * after loading (a reload does not take control again); `help` stays.
  *
  * Text is in English or Chinese, following the browser's language. The
  * sidebar tab in the DSH Web UI has its own dictionary in client.js,
@@ -104,6 +107,7 @@ const session = createDesktopSession({
   base: new URL('./', location.href),
   sessionId: params.get('session'),
   mode: params.get('control') === '1' ? 'control' : 'watch',
+  help: params.get('help') === '1',
   onStatus: render,
 })
 toggle.addEventListener('click', () => session.setMode(current === 'control' ? 'watch' : 'control'))

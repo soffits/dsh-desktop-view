@@ -45,7 +45,7 @@ export function createViews({ control, tickets, viewer, logger, graceMs = RESUME
   /** @type {Map<string, ReturnType<typeof createView>>} by resume token */
   const views = new Map()
 
-  function createView(sessionId) {
+  function createView(sessionId, help) {
     const holderId = randomUUID()
     const resume = randomBytes(24).toString('base64url')
     let socket
@@ -92,6 +92,7 @@ export function createViews({ control, tickets, viewer, logger, graceMs = RESUME
         control.take({
           id: holderId,
           sessionId,
+          help,
           end: (reason) => {
             tickets.revokeHolder(holderId, 'control')
             // Asked for by this view ('released'), or the view is gone: no notice needed.
@@ -154,15 +155,15 @@ export function createViews({ control, tickets, viewer, logger, graceMs = RESUME
     /**
      * Serve one status socket: resume its view or open a new one.
      * @param {import('ws').WebSocket} socket
-     * @param {{ sessionId: string | null, resume: string | null }} request
+     * @param {{ sessionId: string | null, resume: string | null, help?: boolean }} request - `help`: opened from the agent's help link.
      */
-    attach(socket, { sessionId, resume }) {
+    attach(socket, { sessionId, resume, help = false }) {
       const resumed = resume === null ? undefined : views.get(resume)
       if (resumed !== undefined) {
         resumed.attach(socket)
         return resumed
       }
-      const view = createView(sessionId)
+      const view = createView(sessionId, help)
       views.set(view.resume, view)
       view.attach(socket)
       view.start()

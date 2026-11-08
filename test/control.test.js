@@ -115,3 +115,13 @@ test('flush waits for queued writes so the file matches the state', async () => 
   await control.flush()
   assert.deepEqual(written, ['user', 'user'])
 })
+
+test('a view opened from the agent\'s help link is marked on both control changes', () => {
+  const { control, changes } = harness()
+  control.take({ id: 'a', sessionId: 's-1', help: true, end: () => {} })
+  assert.equal(changes.at(-1).change.help, true)
+  control.release('a', 'released')
+  assert.equal(changes.at(-1).change.help, true)
+  control.take({ id: 'b', sessionId: 's-1', end: () => {} })
+  assert.equal(changes.at(-1).change.help, false, 'not marked unless the view says so')
+})

@@ -64,7 +64,9 @@ const RESUME = /^[A-Za-z0-9_-]{16,64}$/
  * and the view it resumes after a dropped connection. Malformed values are
  * ignored.
  * @param {string | undefined} url - The request target.
- * @returns {{ sessionId: string | null, resume: string | null }}
+ * `help=1` marks a view opened from a help link the agent sent, so giving
+ * control back wakes the agent to carry on.
+ * @returns {{ sessionId: string | null, resume: string | null, help: boolean }}
  */
 export function statusQuery(url) {
   const params = new URL(url ?? '/', 'http://relay.invalid').searchParams
@@ -73,6 +75,7 @@ export function statusQuery(url) {
   return {
     sessionId: session !== null && SESSION_ID.test(session) ? session : null,
     resume: resume !== null && RESUME.test(resume) ? resume : null,
+    help: params.get('help') === '1',
   }
 }
 

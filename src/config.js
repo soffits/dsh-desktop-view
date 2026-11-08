@@ -23,5 +23,5 @@ export const Config = z.object({
   stateFile: z.string().default(DEFAULT_STATE_FILE)
     .description('JSON file showing who controls the desktop ("controller": "user" or null), for the agent\'s scripts to check before acting.'),
   notifyAgent: z.union(NOTIFY_MODES.map(mode => z.const(mode))).default('wake')
-    .description('Tell the session the view was opened from when control changes. wake: giving control back wakes the agent; quiet: notes wait for its next step; off: no notes.'),
+    .description('Tell the session the view was opened from when control changes. wake: giving control back wakes the agent when it is running or sent the help link (?help=1), otherwise the note waits; quiet: notes always wait for its next step; off: no notes.'),
 })

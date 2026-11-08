@@ -32,9 +32,9 @@ function harness({ mint, graceMs = 50 } = {}) {
     control, tickets, viewer: { maxFps: 30 }, logger: { warn() {}, debug() {} }, graceMs,
     keepalive: { setTimer: () => ({ unref() {} }), clearTimer: () => {} },
   })
-  const open = (sessionId = 's-1', resume = null) => {
+  const open = (sessionId = 's-1', resume = null, help = false) => {
     const socket = new FakeSocket()
-    const view = views.attach(socket, { sessionId, resume })
+    const view = views.attach(socket, { sessionId, resume, help })
     return { socket, view }
   }
   return { control, tickets, views, open }
@@ -188,4 +188,14 @@ test('stopping the plugin closes every view and records why control ended', asyn
   await take(socket)
   views.closeAll()
   assert.equal(control.state().lastReason, 'stopped')
+})
+
+test('control taken in a view opened from the help link is marked as such', async () => {
+  const { control, open } = harness()
+  const changes = []
+  control.subscribe((_state, change) => changes.push(change))
+  const { socket } = open('s-1', null, true)
+  await settle()
+  await take(socket)
+  assert.equal(changes.at(-1).help, true)
 })

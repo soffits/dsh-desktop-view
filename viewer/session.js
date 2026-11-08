@@ -30,9 +30,10 @@ export function viewerUrl(base, { ticket, hints }, serial) {
  * @param {URL | string} options.base - URL of the plugin's prefix, ending in '/'.
  * @param {string | null} [options.sessionId] - DSH session the view belongs to.
  * @param {'watch' | 'control'} [options.mode] - Mode to ask for once connected.
+ * @param {boolean} [options.help] - Opened from the agent's help link: giving control back wakes the agent.
  * @param {(status: object) => void} options.onStatus
  */
-export function createDesktopSession({ frame, base, sessionId = null, mode = 'watch', onStatus }) {
+export function createDesktopSession({ frame, base, sessionId = null, mode = 'watch', help = false, onStatus }) {
   const root = new URL(base)
   let socket
   let failures = 0
@@ -121,6 +122,7 @@ export function createDesktopSession({ frame, base, sessionId = null, mode = 'wa
     const query = new URLSearchParams()
     if (sessionId) query.set('session', sessionId)
     if (resume) query.set('resume', resume)
+    if (help) query.set('help', '1')
     const url = new URL(`status${query.size > 0 ? `?${query}` : ''}`, root)
     url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
     const current = new WebSocket(url)

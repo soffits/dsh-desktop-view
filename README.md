@@ -7,7 +7,7 @@ The desktop stream that cua-spacesd (Cua's in-guest daemon) generates, together 
 ## What you get
 
 - **A Desktop tab on the right sidebar**, reachable either through the sidebar guide or via the monitor button in the session header.
-- **A full-screen page** at `/desktop-view/`, served from your DSH origin. It adapts to a phone screen, supports touch, and supports direct linking. Adding `?control=1` makes it open directly in control mode, letting an agent that needs help send you a link.
+- **A full-screen page** at `/desktop-view/`, served from your DSH origin. It adapts to a phone screen, supports touch, and supports direct linking. Adding `?control=1` makes it open directly in control mode, letting an agent that needs help send you a link; an agent asking for help sends `/desktop-view/?control=1&help=1&session=<its session id>`, so that giving control back wakes it to carry on.
 - **Watching is the default mode.** You see and hear the desktop, while clicks, keystrokes, clipboard and files are refused. Picking "Take control" switches modes; "Give back" returns you to watching. Control likewise ends on its own after a stretch with no input, or when the view is closed. Merely hiding the Desktop tab (another sidebar tab, a collapsed sidebar, another session) keeps your control; the stream pauses until you look again.
 - **All the desktop viewer's features while you hold control**: mouse, keyboard and touch input, an on-screen keyboard, clipboard syncing, drag-and-drop file uploads, file browsing and downloads, display selection, scaling, and the microphone wherever the desktop supports one.
 - **The agent is kept informed.** For as long as you hold control, a small JSON file is written by the plugin; the agent ought to read it before acting on the desktop, and each control change notifies the session that opened the view.
@@ -42,7 +42,7 @@ Every option appears as a field in the `desktop-view` plugin row.
 | `microphone` | `true` | Permit sending your microphone to the desktop while you hold control, where the desktop supports it. |
 | `idleSeconds` | `120` | After this many seconds with no input, control reverts to watching. |
 | `stateFile` | `/tmp/dsh-desktop-view/control.json` | Path at which the plugin writes the control state that the agent reads. |
-| `notifyAgent` | `wake` | Notify the session that opened the view whenever control changes: `wake` (returning control wakes the agent), `quiet` (notes are queued until the agent's next step), `off`. |
+| `notifyAgent` | `wake` | Notify the session that opened the view whenever control changes: `wake` (returning control wakes the agent if it is running or sent the help link; otherwise the note waits), `quiet` (notes always wait for the agent's next step), `off`. |
 
 ## What the agent can see
 
@@ -59,7 +59,7 @@ As an example, `stateFile` contains:
 
 When the owner holds control, `controller` is `"user"`; otherwise it is `null`. In the `null` case, the file also records the most recent reason control ended (`lastReason`: `released`, `idle`, `disconnected`, `replaced`, `stopped`). Any script or skill that drives the desktop should check it first and yield whenever the value is not `null`.
 
-When `notifyAgent` is on, the session that opened a view gets a short note each time someone takes control (queued, and the agent is not woken) and each time control returns (delivered as steering; this wakes an idle agent so it can continue).
+When `notifyAgent` is on, the session that opened a view gets a short note each time someone takes control (queued; the agent is never woken for it) and each time control returns. The return note wakes the agent only when it has to carry on: it is still running, or the view came from its help link (`help=1`). Otherwise it waits quietly for the agent's next step, so no turn starts for nothing. In the chat the notes appear as a small "Desktop control" row.
 
 ## Security
 

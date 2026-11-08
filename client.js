@@ -42,6 +42,10 @@ window.__ModuleLoader__.load({
       'ended.replaced': 'Control moved to another view.',
       'ended.disconnected': 'The view disconnected, so control returned to watching.',
       'ended.stopped': 'The desktop view stopped.',
+      'time.locale': 'en-US',
+      'notice.title': 'Desktop control',
+      'notice.taken': 'You took control',
+      'notice.released': 'You gave control back',
     }
     const zh = {
       title: '桌面',
@@ -60,6 +64,10 @@ window.__ModuleLoader__.load({
       'ended.replaced': '控制已转到另一个窗口。',
       'ended.disconnected': '连接中断，已回到观看模式。',
       'ended.stopped': '桌面查看器已停止。',
+      'time.locale': 'zh-CN',
+      'notice.title': '桌面控制',
+      'notice.taken': '你接管了控制',
+      'notice.released': '你交还了控制',
     }
 
     // A monitor with a play mark: drawn for this plugin.
@@ -95,6 +103,11 @@ window.__ModuleLoader__.load({
 .ddv-header:active:not(:disabled){background:var(--dsw-alias-interactive-bg-active)}
 .ddv-tooltip{display:inline-flex;align-items:safe center;gap:8px;position:fixed;z-index:100;width:max-content;box-sizing:border-box;max-width:min(50vw,calc(100vw - 24px));padding:3px 7px;border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-tooltip-bg);color:var(--dsw-static-neutral-bluish-00);font-size:13px;line-height:20px;white-space:pre-line;overflow-wrap:break-word;pointer-events:none;transform:translate(-50%);animation:ddv-tooltip-in .15s var(--ds-ease-in-out)}
 @keyframes ddv-tooltip-in{0%{opacity:0}}
+.ddv-notice{border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-xl);background:var(--dsw-alias-turn-trigger-bg,var(--dsw-alias-markdown-code-block));color:var(--dsw-alias-label-tertiary);display:flex;align-items:center;gap:10px;padding:12px 16px;min-width:0}
+.ddv-notice-icon{flex:none;display:inline-flex}
+.ddv-notice-title{flex:none;font-size:var(--dsh-content-font-size,14px)}
+.ddv-notice-summary{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:var(--dsw-font-xxs-12)}
+.ddv-notice-time{flex:none;margin-left:auto;font:var(--dsw-font-xxs-12)}
 @media (prefers-reduced-motion:reduce){.ddv-tooltip{animation:none}}
 `
 
@@ -241,6 +254,56 @@ window.__ModuleLoader__.load({
       return { handlers, tip, hide }
     }
 
+    /** Source kind of the notes the Host half sends the agent (src/notify.js). */
+    const NOTICE_SOURCE = 'desktop-view'
+    const NOTICE_NODE = 'desktop-view-notice'
+
+    /**
+     * The chat row for a control note: what it is ("Desktop control"), what
+     * happened, and when. It replaces the generic row DSH would show for an
+     * unknown message source.
+     */
+    function DesktopNoticeNode({ node, t }) {
+      const data = node?.data ?? {}
+      const date = new Date(data.time)
+      const valid = !Number.isNaN(date.getTime())
+      return h('section', { className: 'ddv-notice', 'data-desktop-view-notice': data.change ?? true },
+        h('span', { className: 'ddv-notice-icon', 'aria-hidden': true }, h(IconDesktop, { size: 14 })),
+        h('span', { className: 'ddv-notice-title' }, t('notice.title')),
+        h('span', { className: 'ddv-notice-summary' }, t(data.change === 'taken' ? 'notice.taken' : 'notice.released')),
+        valid && h('time', { className: 'ddv-notice-time', dateTime: date.toISOString() },
+          new Intl.DateTimeFormat(t('time.locale'), { hour: '2-digit', minute: '2-digit' }).format(date)))
+    }
+
+    /**
+     * Claims the plugin's own notes in the chat timeline (exclusively, so the
+     * generic input-message definition does not also render them) and turns
+     * them into one `desktop-view-notice` node each.
+     */
+    const noticeDefinition = {
+      kind: NOTICE_NODE,
+      target: 'chat',
+      match: event => event.type === 'user/message' && event.surfaceOp === 'append' && event.data?.source?.kind === NOTICE_SOURCE
+        ? { id: String(event.data.id), role: 'start', exclusive: true }
+        : null,
+      start: (_context, match) => ({
+        seq: match.event.seq,
+        time: match.event.time,
+        change: match.event.data.source.change === 'taken' ? 'taken' : 'released',
+      }),
+      update: context => context.state,
+      buildViewNode: context => context.state === undefined ? null : {
+        key: context.key,
+        kind: NOTICE_NODE,
+        id: context.id,
+        target: 'chat',
+        anchorSeq: context.state.seq,
+        location: context.start?.location ?? context.matches[0]?.location ?? { kind: 'unresolved' },
+        visibility: 'visible',
+        data: context.state,
+      },
+    }
+
     /** Opens the Desktop tab, or hides it when it is the one showing. */
     function HeaderButton({ t, sidebar }) {
       const label = t('header.toggle')
@@ -303,6 +366,17 @@ window.__ModuleLoader__.load({
           locale: NS,
           inject: sessionId => ({ t, sessionId }),
         }, DesktopTab))
+
+        // Chat rows for the control notes; absent in hosts without the Conversation layer.
+        ctx.inject(['uiConversation'], (sub) => {
+          sub.effect(() => sub.uiConversation.events.register(noticeDefinition), 'desktop-view: notice rows')
+        })
+        ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({
+          name: 'conversation.chat.node',
+          key: NOTICE_NODE,
+          locale: NS,
+          inject: () => ({ t }),
+        }, DesktopNoticeNode))
 
         ctx.slots.inject('conversation.session.header.utilities', () => ctx.slots.register({
           name: 'conversation.session.header.utilities',

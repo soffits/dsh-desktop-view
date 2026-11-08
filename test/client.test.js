@@ -28,6 +28,7 @@ function load() {
   const registrations = []
   const dictionaries = new Map()
   const effects = []
+  const definitions = []
   let factory
   globalThis.window = { __ModuleLoader__: { load: ({ factory: created }) => { factory = created } } }
   globalThis.document = {
@@ -51,12 +52,18 @@ function load() {
     sidebarRightTabs: { register(definition) { registrations.push({ ...definition }); return () => {} } },
     sidebarRight: { active: () => undefined, isExpanded: () => false, openTab() {}, hide() {} },
     get: () => undefined,
+    inject(names, callback) {
+      callback({
+        effect(fn) { effects.push(fn()) },
+        uiConversation: { events: { register(definition) { definitions.push(definition); return () => {} } } },
+      })
+    },
   }
   factory(require => {
     if (require === 'react') return React
     throw new Error(`unexpected module ${require}`)
   }).apply(ctx)
-  return { registrations, dictionaries, effects }
+  return { registrations, dictionaries, effects, definitions }
 }
 
 test('the browser half loads through the module loader and registers one tab type', () => {
@@ -95,4 +102,31 @@ test('unloading runs the registered cleanups without throwing', () => {
   const { effects } = load()
   assert.equal(effects.length >= 1, true)
   for (const dispose of effects) if (typeof dispose === 'function') dispose()
+})
+
+test('control notes get their own chat row instead of the generic one (OWNER-4)', () => {
+  const { registrations, definitions } = load()
+  const [definition] = definitions
+  assert.equal(definition.target, 'chat')
+  const row = registrations.find(entry => entry.name === 'conversation.chat.node')
+  assert.equal(row.key, definition.kind)
+
+  const note = (kind, change, surfaceOp = 'append') => ({
+    type: 'user/message', seq: 41, time: '2026-11-08T21:30:00.000Z', surfaceOp,
+    data: { id: 'm-1', source: { kind, form: 'notice', summary: 'Owner took control', change } },
+  })
+  assert.deepEqual(definition.match(note('desktop-view', 'taken')), { id: 'm-1', role: 'start', exclusive: true }, 'claimed exclusively, so the generic row is not drawn too')
+  assert.equal(definition.match(note('user', undefined)), null, 'other messages are left alone')
+  assert.equal(definition.match(note('desktop-view', 'taken', 'replace')), null)
+  assert.equal(definition.match({ type: 'assistant/message', data: {} }), null)
+
+  const match = { event: note('desktop-view', 'taken'), location: { kind: 'step' } }
+  const state = definition.start({}, match)
+  assert.deepEqual(state, { seq: 41, time: '2026-11-08T21:30:00.000Z', change: 'taken' })
+  const node = definition.buildViewNode({ key: 'k', id: 'm-1', state, start: match, matches: [match] })
+  assert.equal(node.kind, definition.kind)
+  assert.equal(node.target, 'chat')
+  assert.equal(node.anchorSeq, 41)
+  assert.deepEqual(node.location, { kind: 'step' })
+  assert.equal(definition.buildViewNode({ key: 'k', id: 'm-1', state: undefined, matches: [] }), null)
 })
