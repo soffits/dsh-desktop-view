@@ -1,0 +1,7 @@
+# Bundle layer for dsh-desktop-view: one row, configured on the plugin's
+# settings page or in the profile patch. The defaults fit the Cua container
+# image (cua-spacesd on loopback with its token in /run/cua/env-token).
+- insert:
+    - id: desktop-view
+      name: 'dsh-desktop-view'
+      config: {}

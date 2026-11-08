@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Desktop view",
+    "description": "Shows the agent's computer live inside the Web UI, watch by default and take control when it needs a hand (CAPTCHAs, QR logins), in a sidebar tab or a full-screen page that works on a phone."
+  }
+}
