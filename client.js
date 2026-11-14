@@ -80,7 +80,7 @@ window.__ModuleLoader__.load({
 
     const CSS = `
 .ddv-tab{display:flex;flex-direction:column;height:100%;min-height:0;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font-size:13px;line-height:20px}
-.ddv-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border-bottom:.5px solid var(--dsw-alias-border-l3);flex:none;flex-wrap:wrap}
+.ddv-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border-bottom:.5px solid var(--dsw-alias-border-l3);flex:none;flex-wrap:wrap;user-select:none;-webkit-user-select:none}
 .ddv-status{display:inline-flex;align-items:center;gap:6px;min-width:0;color:var(--dsw-alias-label-secondary)}
 .ddv-status:before{content:"";flex:none;width:7px;height:7px;border-radius:50%;background:var(--dsw-alias-label-caption)}
 .ddv-status[data-tone=live]:before{background:var(--dsw-alias-state-success-primary,#3fb950)}
