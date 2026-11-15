@@ -48,5 +48,6 @@ Do the work yourself, in your own session, by default: design, code, fixes and r
 
 - Conventional Commits, one-line subjects, a body only when the why isn't obvious. The repo's local author identity is set on purpose; never override it.
 - Squash merges by default. Whoever merges a branch deletes it, local and remote, in the same step (`gh pr merge --squash --delete-branch`), removes its worktree and runs `git fetch --prune`; only `main` and the current release branch stay.
+- PR titles are Conventional Commit subjects (`feat: ...`, `fix(scope): ...`), because a squash merge makes the title the commit on the default branch; CI checks it.
 - In GitHub Actions, reference well-known actions by major tag (`@v5`), not by commit SHA.
 - Releases: move the `Unreleased` part of `CHANGELOG.md` under the new version's heading (English), bump the version, squash-merge to `main` with a Conventional Commit subject (`feat: <summary> (vX.Y.Z)`), and once CI is green on that commit push the tag `vX.Y.Z`; the release workflow builds and publishes with that section as the description, without rerunning tests. Don't name a working branch exactly like the tag: `git push origin vX.Y.Z` then fails as ambiguous (use `refs/tags/vX.Y.Z`).
