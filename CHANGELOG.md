@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- On touch screens the header button, the Open full screen / Take control buttons and the full-screen viewer's buttons are 40-44px.
 - The status bar (Watching / In control) can no longer be highlighted like selected page text.
 - Giving control back wakes the agent only when it has to carry on: it is running, or the view came from its help link (`?help=1`); otherwise the note waits quietly. Taking control never starts a turn.
 - Control notes show in the chat as a "Desktop control" row instead of the generic "Execution requested", and are shorter.

@@ -17,3 +17,4 @@ button.primary[data-control="true"] { background: #26262a; border-color: #f0a020
 iframe { flex: 1; width: 100%; height: 100%; border: 0; display: block; background: #000; }
 .stage[data-control="true"] iframe { margin: 2px; width: calc(100% - 4px); height: calc(100% - 4px); }
 .message { position: absolute; left: 12px; right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); margin: 0; padding: 8px 12px; border-radius: 10px; background: #26262a; color: #c8c8cc; text-align: center; }
+@media (pointer: coarse) { button { min-height: 44px; } }
