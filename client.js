@@ -90,6 +90,7 @@ window.__ModuleLoader__.load({
 .ddv-actions{display:inline-flex;gap:6px;flex:none}
 .ddv-btn{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;gap:4px;height:28px;padding:0 10px;border:none;border-radius:var(--dsw-radius-sm);font:inherit;font-size:12px;line-height:18px;cursor:pointer;color:var(--dsw-alias-label-primary);background:transparent;box-shadow:inset 0 0 0 var(--dsh-hairline-width,.5px) var(--dsh-button-outline-color,var(--dsw-alias-border-l3));text-decoration:none}
 .ddv-btn:disabled{cursor:not-allowed;opacity:.4}
+@media (pointer:coarse){.ddv-btn{height:40px;padding:0 14px;font-size:14px}.ddv-header{width:40px;height:40px}}
 @media (hover:hover){.ddv-btn:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}}
 .ddv-primary{background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-label-on-color,#fff);box-shadow:none}
 @media (hover:hover){.ddv-primary:hover:not(:disabled){background:var(--dsw-alias-state-business-primary);opacity:.9}}
