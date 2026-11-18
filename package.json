@@ -45,12 +45,12 @@
     "check": "for f in index.js client.js src/*.js viewer/*.js test/*.js; do node --check \"$f\" || exit 1; done"
   },
   "dependencies": {
-    "@deepseek-ai/schemastery": "^3.19.0",
     "ws": "^8.22.2"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "4.1.0",
-    "@deepseek-ai/dsh-client-connection": "0.2.2-rc.1"
+    "@deepseek-ai/dsh-client-connection": "0.2.2-rc.1",
+    "@deepseek-ai/schemastery": "^3.19.0"
   },
   "keywords": [
     "dsh-plugin",
@@ -69,5 +69,8 @@
   "homepage": "https://github.com/soffits/dsh-desktop-view#readme",
   "bugs": {
     "url": "https://github.com/soffits/dsh-desktop-view/issues"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/schemastery": "^3.18.5"
   }
 }
