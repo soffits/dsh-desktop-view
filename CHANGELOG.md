@@ -1,7 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.2.1
 
+- First npm release, as `@soffits/dsh-desktop-view` (`dsh plugin add @soffits/dsh-desktop-view`).
+- `@deepseek-ai/schemastery` is a peer dependency, so an update never moves a private copy.
 - On touch screens the header button, the Open full screen / Take control buttons and the full-screen viewer's buttons are 40-44px.
 - The status bar (Watching / In control) can no longer be highlighted like selected page text.
 - Giving control back wakes the agent only when it has to carry on: it is running, or the view came from its help link (`?help=1`); otherwise the note waits quietly. Taking control never starts a turn.

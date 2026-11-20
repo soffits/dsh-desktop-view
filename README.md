@@ -20,10 +20,10 @@ The plugin passes the desktop stream along from cua-spacesd (the daemon that liv
 
 ## Installation
 
-Directly from GitHub:
+From npm:
 
 ```bash
-dsh plugin --profile web add github:soffits/dsh-desktop-view
+dsh plugin --profile web add @soffits/dsh-desktop-view
 ```
 
 Alternatively, add the bundle through the Web UI's plugin manager. Restart DSH afterwards.
