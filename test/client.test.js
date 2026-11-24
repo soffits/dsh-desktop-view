@@ -130,3 +130,9 @@ test('control notes get their own chat row instead of the generic one (OWNER-4)'
   assert.deepEqual(node.location, { kind: 'step' })
   assert.equal(definition.buildViewNode({ key: 'k', id: 'm-1', state: undefined, matches: [] }), null)
 })
+
+test('the module registers under the package name, as the loader asks for it', async () => {
+  const { name } = JSON.parse(await readFile(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8'))
+  const id = /__ModuleLoader__\.load\(\{\s*id: '([^']+)'/.exec(source)?.[1]
+  assert.equal(id, name)
+})

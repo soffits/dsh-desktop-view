@@ -12,7 +12,7 @@
  * (--dsw-*), except the viewer's own dark stage.
  */
 window.__ModuleLoader__.load({
-  id: 'dsh-desktop-view',
+  id: '@soffits/dsh-desktop-view',
   factory(require) {
     const React = require('react')
     const h = React.createElement
