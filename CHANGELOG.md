@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.3
+
+- The browser half registers under the package name `@soffits/dsh-desktop-view`. Since 0.2.1 it still used the old unscoped name, so the Web UI loader rejected it and showed "Failed to load plugins".
+
 ## 0.2.2
 
 - The bundle's plugin row names the package `@soffits/dsh-desktop-view`. In 0.2.1 it named `dsh-desktop-view`, so a profile that had installed the scoped package still loaded an older unscoped copy.
