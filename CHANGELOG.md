@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2
+
+- The bundle's plugin row names the package `@soffits/dsh-desktop-view`. In 0.2.1 it named `dsh-desktop-view`, so a profile that had installed the scoped package still loaded an older unscoped copy.
+
 ## 0.2.1
 
 - First npm release, as `@soffits/dsh-desktop-view` (`dsh plugin add @soffits/dsh-desktop-view`).
