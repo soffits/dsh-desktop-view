@@ -81,3 +81,12 @@ test('the config rejects values the daemon would refuse', () => {
   assert.throws(() => Config({ idleSeconds: 1 }))
   assert.throws(() => Config({ notifyAgent: 'shout' }))
 })
+
+test('the bundle layer loads the package under its own name', async () => {
+  const { readFile } = await import('node:fs/promises')
+  const [layer, manifest] = await Promise.all([
+    readFile(new URL('../cordis.patch.yml', import.meta.url), 'utf8'),
+    readFile(new URL('../package.json', import.meta.url), 'utf8'),
+  ])
+  assert.match(layer, new RegExp(`name: '${JSON.parse(manifest).name}'`))
+})
